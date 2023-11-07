@@ -11,18 +11,18 @@
 #	- util-linux 2.39.2
 
 # A very primitive bash script to hide anything into anything else, and extract it when needed
-# Beware !  Only one can file can be handled at time in this version
-# Note : in this version, the injected payload REMAINS even after extraction
+# Beware !  Only one file can be handled at time in this version
+# Note : in this version, the injected payload REMAINS in "hollow" even after extraction
 
-# Made for educational purpose only
+# Please, do not use with malware
 
 mode="${1}" # inject or extract
-hollow="${2}" # the file that will receive the payload
+hollow="${2}" # the file that receives the payload
 payload="${3}" # hidden file as input
 
 # Consts
-data='/tmp/impacked.dat' # location where the informations are located
-outputExt='restored' # tip: customize on your own
+data='/tmp/impacked.dat' # location where some needed informations are located
+outputExt='restored' # advice: customize on your own
 output="impacked${RANDOM:0:3}.${outputExt}"
 
 usage(){
@@ -43,39 +43,39 @@ extractHexLoc(){
 	hollow="${1}"
 
 	rawLoc=$(xxd "${hollow}" | tail -1) # last line of input according to xxd utility
-	length=$(xxd "${hollow}" | wc -l ) # number of lines
-	string=$(echo "${rawLoc}" | awk '{print $NF}') # last data
+	length=$(xxd "${hollow}" | wc -l ) # number of lines of host read in hex
+	string=$(echo "${rawLoc}" | awk '{print $NF}') # last: data as ASCII
 
 	echo ${rawLoc}
 	echo "Line before payload ${length}"
 
 	[ -d /tmp ] || mkdir /tmp &>/dev/null # check if /tmp exists
 
-	echo "${string}" > "${data}" # remember this information to remove it later
+	echo "${string}" > "${data}" # remember this information in order to remove it later
 	echo "${length}" >> "${data}" # append offset to use it later
 
 }
 
 
-if [ "${mode}" == 'inject' ] # mode injection. To use first
+if [ "${mode}" == 'inject' ] # `injection` mode. Use it first
 	then
 		[ "${#}" -ne 3 ] && usage # exactly 3 parameters are wanted
 
-		extractHexLoc "${hollow}" # usage of former function
-		cat "${payload}" | base64 -w 0 | rev >> "${hollow}" # data is converted to base64, then reversed, then concatenated
-elif [ "${mode}" == 'extract' ] # mode extract. Use on injected hollowed files
+		extractHexLoc "${hollow}" # usage of former function to keep important data
+		cat "${payload}" | base64 -w 0 | rev >> "${hollow}" # obfuscation: data is converted to base64, then reversed, then concatenated to the output
+elif [ "${mode}" == 'extract' ] # `extract` mode. Use with injected file
 	then
 		[ "${#}" -ne 2 ] && usage
 
-		string=$(cat /tmp/.impacked.dat | head -1) # data we remembered during injection mode
+		string=$(cat /tmp/.impacked.dat | head -1) # data we kept while in injection mode
 		length=$(cat /tmp/.impacked.dat | tail -1)
 
-		completeSample="$(xxd "${hollow}" | sed -n "${length},$ p")" # extraction of the payload from rembered line to end
-		refineSample="$(echo "${completeSample}" | awk '{print $NF}')" # selection of ASII part
-		extractedSample="$(echo ${refineSample} | tr -d ' ' | sed 's/'"${string}"'//')" # withdrawing of hollow-related content
+		completeSample="$(xxd "${hollow}" | sed -n "${length},$ p")" # extraction of payload from rembered line to the end
+		refineSample="$(echo "${completeSample}" | awk '{print $NF}')" # selection of ASCII part
+		extractedSample="$(echo ${refineSample} | tr -d ' ' | sed 's/'"${string}"'//')" # withdrawing of "hollow"-related content
 		echo "Input sample (obfuscated) at line ${length}"
 
-		if echo "${extractedSample}" | rev | base64 -d > "${output}" # extraction of file on the disk
+		if echo "${extractedSample}" | rev | base64 -d > "${output}" # extraction of data, written down on current location
 			then
 				echo "Payload restored in ${output}"
 		fi
